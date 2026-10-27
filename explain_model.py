@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 
 # Load the saved model
-saved = joblib.load("models/churn_model.joblib")
+saved = joblib.load("models/churn_model_tuned.joblib")
 model = saved["model"]
 features = saved["features"]
 

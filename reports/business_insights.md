@@ -108,3 +108,46 @@ Analysis charts are available in `reports/figures/`, including:
 
 Actual filenames should be checked against the files present in the project.
 
+
+## Tuned Model Findings
+
+### Model Performance
+
+The tuned LightGBM classifier achieved a test ROC-AUC of **0.8497**, indicating good ability to distinguish between customers who churn and those who remain.
+
+At the default classification threshold of 0.50:
+
+- Accuracy: 74.13%
+- Precision: 50.85%
+- Recall: 79.68%
+- F1-score: 62.08%
+
+The model identified 298 of 374 actual churn cases in the test set, while flagging 288 non-churning customers as potential churners.
+
+### Key Predictive Features
+
+The tuned model's feature-importance analysis identified the following leading predictors:
+
+1. Monthly Charges
+2. Tenure Months
+3. Total Charges
+4. Dependents
+5. Electronic-check payment method
+6. Contract type
+
+These findings suggest that customer spending, relationship duration, payment behaviour, and contract arrangements are important signals for identifying customers at risk of churn.
+
+Feature importance measures predictive contribution, not causation. SHAP analysis should be used to examine whether specific feature values tend to increase or decrease individual churn predictions.
+
+### Recommended Retention Actions
+
+- **Early-tenure customers:** Introduce onboarding support and proactive engagement during the first year.
+- **High-charge customers:** Review plan suitability and offer appropriate alternatives where value concerns are identified.
+- **Electronic-check customers:** Investigate payment friction and encourage convenient, reliable payment options.
+- **Contract strategy:** Test incentives for longer-term contracts while monitoring conversion and retention outcomes.
+- **Targeted retention:** Prioritise customers with high predicted churn risk and measure campaign effectiveness against a control group.
+
+### Limitations
+
+The model identifies statistical patterns in historical customer data and does not establish causal relationships. Retention campaigns should be tested before broad deployment. Model performance and the selected decision threshold should be reviewed periodically.
+

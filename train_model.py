@@ -2,8 +2,8 @@
 import pandas as pd
 import lightgbm as lgb
 import joblib
-from pathlib import Path
 
+from pathlib import Path
 from sklearn.model_selection import train_test_split
 from sklearn.metrics import (
     accuracy_score,
@@ -15,15 +15,14 @@ from sklearn.metrics import (
     classification_report,
 )
 
-# 1. Load the processed dataset
+# 1. Load data
 df = pd.read_csv("data/processed/churn_baseline.csv")
 
-# 2. Convert Total Charges to numeric
 df["Total Charges"] = pd.to_numeric(
     df["Total Charges"], errors="coerce"
 )
 
-# 3. Remove identifiers and fields that could leak the answer
+# 2. Separate target and remove leakage/identifier columns
 drop_cols = [
     "Churn Value",
     "Count",
@@ -41,37 +40,39 @@ drop_cols = [
 ]
 
 X = df.drop(columns=drop_cols, errors="ignore")
-y = df["Churn Value"].astype(int)
+y = pd.to_numeric(df["Churn Value"], errors="coerce")
 
-# 4. Remove rows with missing values
+# 3. Clean missing values
 valid = X.notna().all(axis=1) & y.notna()
-X = X.loc[valid]
-y = y.loc[valid]
+X = X.loc[valid].copy()
+y = y.loc[valid].astype(int)
 
-# 5. Split data into training and testing sets
-X_train, X_test, y_train, y_test = train_test_split(
+# 4. Encode categorical variables consistently
+X = pd.get_dummies(X, drop_first=True, dtype=int)
+
+# 5. Split into train (60%), validation (20%), test (20%)
+X_trainval, X_test, y_trainval, y_test = train_test_split(
     X,
     y,
-    test_size=0.2,
+    test_size=0.20,
     random_state=42,
     stratify=y,
 )
 
-# 6. Encode categorical features
-X_train = pd.get_dummies(X_train, drop_first=True)
-X_test = pd.get_dummies(X_test, drop_first=True)
-
-# Ensure training and testing have identical columns
-X_test = X_test.reindex(
-    columns=X_train.columns,
-    fill_value=0,
+X_train, X_val, y_train, y_val = train_test_split(
+    X_trainval,
+    y_trainval,
+    test_size=0.25,
+    random_state=42,
+    stratify=y_trainval,
 )
 
 print("Training rows:", len(X_train))
+print("Validation rows:", len(X_val))
 print("Testing rows:", len(X_test))
-print("Features after encoding:", X_train.shape[1])
+print("Features:", X_train.shape[1])
 
-# 7. Train the LightGBM classifier
+# 6. Train LightGBM
 model = lgb.LGBMClassifier(
     n_estimators=300,
     learning_rate=0.05,
@@ -83,21 +84,29 @@ model = lgb.LGBMClassifier(
 
 model.fit(X_train, y_train)
 
-# 8. Predict churn probabilities
-y_prob = model.predict_proba(X_test)[:, 1]
+# 7. Select threshold using validation data only
+val_prob = model.predict_proba(X_val)[:, 1]
 
-# 9. Compare different classification thresholds
-print("\nTHRESHOLD COMPARISON")
+thresholds = [0.20, 0.25, 0.30, 0.35, 0.40, 0.45, 0.50]
+results = []
+
+print("\nVALIDATION THRESHOLD COMPARISON")
 print("-" * 65)
 
-for threshold in [0.30, 0.35, 0.40, 0.45, 0.50]:
-    y_pred_temp = (y_prob >= threshold).astype(int)
+for threshold in thresholds:
+    val_pred = (val_prob >= threshold).astype(int)
 
     precision = precision_score(
-        y_test, y_pred_temp, zero_division=0
+        y_val, val_pred, zero_division=0
     )
-    recall = recall_score(y_test, y_pred_temp)
-    f1 = f1_score(y_test, y_pred_temp, zero_division=0)
+    recall = recall_score(
+        y_val, val_pred, zero_division=0
+    )
+    f1 = f1_score(
+        y_val, val_pred, zero_division=0
+    )
+
+    results.append((f1, threshold))
 
     print(
         f"Threshold: {threshold:.2f} | "
@@ -106,37 +115,42 @@ for threshold in [0.30, 0.35, 0.40, 0.45, 0.50]:
         f"F1: {f1:.3f}"
     )
 
-# 10. Evaluate using the initial threshold of 0.35
-threshold = 0.35
-y_pred = (y_prob >= threshold).astype(int)
+# Maximize validation F1; prefer the higher threshold in a tie
+_, best_threshold = max(results, key=lambda item: (item[0], item[1]))
 
-print(f"\nFINAL RESULTS AT THRESHOLD {threshold:.2f}")
-print("Accuracy:", round(accuracy_score(y_test, y_pred), 4))
+# 8. Evaluate once on the untouched test set
+test_prob = model.predict_proba(X_test)[:, 1]
+test_pred = (test_prob >= best_threshold).astype(int)
+
+print(f"\nFINAL TEST RESULTS — THRESHOLD {best_threshold:.2f}")
+print("Accuracy:", round(accuracy_score(y_test, test_pred), 4))
 print("Precision:", round(
-    precision_score(y_test, y_pred, zero_division=0), 4
+    precision_score(y_test, test_pred, zero_division=0), 4
 ))
-print("Recall:", round(recall_score(y_test, y_pred), 4))
+print("Recall:", round(
+    recall_score(y_test, test_pred, zero_division=0), 4
+))
 print("F1 score:", round(
-    f1_score(y_test, y_pred, zero_division=0), 4
+    f1_score(y_test, test_pred, zero_division=0), 4
 ))
-print("ROC-AUC:", round(roc_auc_score(y_test, y_prob), 4))
+print("ROC-AUC:", round(roc_auc_score(y_test, test_prob), 4))
 
 print("\nConfusion matrix:")
-print(confusion_matrix(y_test, y_pred))
+print(confusion_matrix(y_test, test_pred))
 
 print("\nClassification report:")
 print(classification_report(
-    y_test, y_pred, zero_division=0
+    y_test, test_pred, zero_division=0
 ))
 
-# 11. Save the trained model and its feature columns
+# 9. Save model and feature metadata
 Path("models").mkdir(exist_ok=True)
 
 joblib.dump(
     {
         "model": model,
         "features": X_train.columns.tolist(),
-        "threshold": threshold,
+        "threshold": best_threshold,
     },
     "models/churn_model.joblib",
 )
