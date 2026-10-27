@@ -33,14 +33,41 @@ Customer churn affects revenue, customer lifetime value, and business growth. Th
 
 ## Machine Learning Performance
 
-Baseline model:
-- Accuracy: 78.25%
-- Precision: 59.83%
-- Recall: 55.35%
-- F1 score: 57.50%
-- ROC-AUC: 83.88%
+A LightGBM classifier was optimized using 3-fold cross-validation and hyperparameter tuning.
 
-A lower classification threshold increased recall to 82.62%, with precision of 49.68%. This trade-off helps prioritize churn detection while requiring appropriate follow-up validation.
+### Tuned Model — Test Results
+
+Evaluated on a held-out test set of 1,407 customers at a classification threshold of 0.50.
+
+- **Accuracy:** 74.13%
+- **Precision:** 50.85%
+- **Recall:** 79.68%
+- **F1-score:** 62.08%
+- **ROC-AUC:** 84.97%
+
+The model identified 298 of 374 actual churn cases, while incorrectly flagging 288 customers who did not churn.
+
+### Model Optimization
+
+- **Cross-validation ROC-AUC:** 86.53%
+- **Algorithm:** LightGBM Classifier
+- **Hyperparameter tuning:** Randomized parameter search with 3-fold cross-validation
+- **Threshold selection:** Evaluated on validation data before final test evaluation
+
+### Key Predictive Features
+
+The model's feature-importance analysis identified the following leading predictors:
+
+1. Monthly Charges
+2. Tenure Months
+3. Total Charges
+4. Dependents
+5. Payment Method
+6. Contract Type
+
+SHAP analysis was also used to investigate how features influence individual predictions.
+
+**Note:** Feature importance indicates predictive contribution, not causation. Results should be validated before using the model to make customer-retention decisions.
 
 ## Visualizations
 
@@ -55,6 +82,10 @@ A lower classification threshold increased recall to 82.62%, with precision of 4
 ### Churn Prediction Explainability
 
 ![SHAP summary](reports/figures/shap_summary.png)
+
+### Tuned Model Feature Importance
+
+![Tuned model feature importance](reports/figures/tuned_feature_importance.png)
 
 ### Churn by Customer Tenure
 
