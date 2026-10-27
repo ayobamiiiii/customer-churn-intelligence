@@ -1,0 +1,16 @@
+# Python environment
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+
+# Sensitive and raw data
+models/*.joblib
+data/*.xlsx
+data/*.csv
+
+# macOS
+.DS_Store
+
+# Jupyter
+.ipynb_checkpoints/
