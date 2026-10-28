@@ -6,6 +6,7 @@ __pycache__/
 
 # Sensitive and raw data
 models/*.joblib
+!models/churn_model_tuned.joblib
 data/*.xlsx
 data/*.csv
 
